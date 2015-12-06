@@ -1,0 +1,16 @@
+{{ monsters |safe }}
+
+<table>
+    <tr>
+        <td>
+            coins : {{ coins }}<br/>
+            {% if active %} Active {% else %} Waiting {% endif %}
+        </td>
+        <td>
+            terra : {{ classic }}/4 <br/>
+            divine : {{ spiritual }}/4 <br/>
+            aether : {{ cosmic }}/4 <br/>
+            balance : {{ intern }}/4
+        </td>
+    </tr>
+</table>

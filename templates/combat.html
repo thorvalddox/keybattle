@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+    {% block contents %}
+
+        <div id="render_enemy"></div>
+        <div id="render_player"></div>
+
+
+        <script>
+            var xmlhttp;
+            if (window.XMLHttpRequest)
+              { //code for IE7+, Firefox, Chrome, Opera, Safari
+              xmlhttp=new XMLHttpRequest();
+              }
+            else
+              {// code for IE6, IE5
+              xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+              }
+            xmlhttp.onreadystatechange=function()
+              {
+                if (xmlhttp.readyState==4 && xmlhttp.status==200)
+                {
+                    var data = JSON.parse(xmlhttp.responseText)
+                    document.getElementById("render_enemy").innerHTML=data.enemy;
+                    document.getElementById("render_player").innerHTML=data.player;
+                }
+              }
+            function loadXMLDoc()
+            {
+                xmlhttp.open("GET","/get/data/battle/",true);
+                xmlhttp.send();
+            }
+            function load(){
+            var t=setInterval(loadXMLDoc,5000);
+            loadXMLDoc();
+            }
+            $(document).ready(load);
+            function followUrl(url)
+            {
+                window.location = url;
+                setTimeout(function() { loadXMLDoc(); }, 300);
+            }
+        </script>
+
+    {% endblock %}

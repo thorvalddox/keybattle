@@ -1,0 +1,26 @@
+
+{{ monsters |safe }}
+<table>
+    <tr>
+        <td>
+            coins : {{ coins }}<br/>
+            {% if active %} <a href="/battle/endturn/">End turn</a> {% else %} Waiting {% endif %}
+        </td>
+        <td>
+            new monster : {{ costs.0 }} <br/>
+            free kill   : {{ costs.1 }} <br/>
+            opposed kill : {{ costs.2 }} <br/>
+            direct kill : {{ costs.3 }}
+        </td>
+        <td>
+        <td>
+            terra : {{ classic }}/4 <br/>
+            divine : {{ spiritual }}/4 <br/>
+            aether : {{ cosmic }}/4 <br/>
+            balance : {{ intern }}/4
+        </td>
+    </tr>
+</table>
+    <br/>
+    deck <br/>
+    {{ deck |safe }}

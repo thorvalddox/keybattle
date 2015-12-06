@@ -1,0 +1,17 @@
+<div class="battlerborder" {% if selected %}id="selected"{% else %}id="default"{% endif %}>
+    {%  if image is defined %}
+    <div class="imgbattler">
+
+        <img src="{{  image}}" class="battler">
+
+    </div>
+    {%  endif %}
+    <br/>
+        {% if selectable %}
+        <a href="javascript:followUrl('/select/monster/{{ unid }}')">{{ name }}</a>
+        {% else %}
+        {{ name }}
+        {% endif %}
+    <span class="right">x{{ amount }}</span>? <br/>
+    {{ e1|safe }}<span class="right">{{ e2|safe }}</span>?
+</div>

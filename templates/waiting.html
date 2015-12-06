@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+    {% block contents %}
+        You have been added in the queue.<br/>
+        Please be patient.<br/>
+        <a href="/battle/leaveQueue/">leave queue</a>
+
+        <script type="text/javascript">
+          setTimeout(function () { location.reload(true); }, 5000);
+        </script>
+
+    {% endblock %}

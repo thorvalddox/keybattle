@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+    {% block contents %}
+        Welcome back {{ uid }}<br/>
+        <a href="/battle/">start battle</a> <br/>
+        Money: {{ money}} <br/>
+        <a href="javascript:followUrl('/addmonster/')">new monster</a> <br/>
+        Monsters:<br/>
+        <div id="deck">{{ monsters | safe }}</div>
+
+
+        <script>
+            var xmlhttp;
+            if (window.XMLHttpRequest)
+              { //code for IE7+, Firefox, Chrome, Opera, Safari
+              xmlhttp=new XMLHttpRequest();
+              }
+            else
+              {// code for IE6, IE5
+              xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+              }
+            xmlhttp.onreadystatechange=function()
+              {
+                if (xmlhttp.readyState==4 && xmlhttp.status==200)
+                {
+                    var data = JSON.parse(xmlhttp.responseText)
+                    document.getElementById("deck").innerHTML=data.monsters;
+                }
+              }
+            function loadXMLDoc()
+            {
+                xmlhttp.open("GET","/get/data/main/",true);
+                xmlhttp.send();
+            }
+            function load(){
+            var t=setInterval(loadXMLDoc,5000);
+            loadXMLDoc();
+            }
+            //$(document).ready(load);
+            function followUrl(url)
+            {
+                window.location = url;
+                setTimeout(function() { loadXMLDoc(); }, 300);
+            }
+        </script>
+
+    {% endblock %}
