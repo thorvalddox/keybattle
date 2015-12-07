@@ -139,6 +139,7 @@ class Player:
         self.uid = hex(random.randrange(16**16))
         session["uid"] = self.uid
         self.monsters = Deck()
+        self.deck = Deck()
         self.monsters.addrandom(10)
         self.cash = 100
         Player.all_[self.uid] = self
@@ -154,11 +155,11 @@ class Player:
         Player_Battle(self,AI_battle()).active = True
 
 
-    def display_all_Monsters(self,selectable=False):
-        return self.monsters.display(selectable)
+    #def display_all_Monsters(self,selectable=False):
+    #    return self.monsters.display(selectable)
 
     def render_options(self):
-        return {"money":self.cash,"monsters":self.display_all_Monsters(),"uid":self.uid}
+        return {"money":self.cash,"monsters":self.monsters.display(True),"deck":self.deck.display(True),"uid":self.uid}
     def get_json(self):
         return self.render_options()
 
@@ -169,6 +170,17 @@ class Deck():
     def add(self,el1,el2):
         self.cards.append(Monster(el1,el2))
         self.sort()
+    def swap(self,other,monster):
+        if monster in self.cards:
+            self.cards.remove(monster)
+            other.cards.append(monster)
+        elif monster in other.cards:
+            other.cards.remove(monster)
+            self.cards.append(monster)
+    def swap_selected(self,other,uid):
+        for x in self.cards+other.cards:
+            if x.selected[uid]:
+                self.swap(other,x)
     def addrandom(self,amount=1):
         self.cards.extend(randommonster() for _ in range(amount))
         self.sort()
@@ -176,7 +188,9 @@ class Deck():
         self.cards.sort(key=lambda x:[e.index for e in x.elements])
     def __getitem__(self, item):
         return self.cards[item]
-    def drawfrom(self,other,index):
+    def drawfrom(self,other,index=...):
+        if index == ...:
+            index = random.randrange(len(other.cards))
         self.cards.append(other.cards.pop(index))
     def destroy(self,item):
         self.cards.pop(item)
@@ -225,14 +239,15 @@ class Player_Battle:
             opponent.opponent = self
         self.master = master
         self.master.currentBattle = self
+        self.table = Deck()
         self.hand = Deck()
         self.coins = 6
         self.active = False
-        self.deck = self.master.monsters
+        self.deck = self.master.deck
     def has_element(self,el):
-        return any(el in m.elements for m in self.hand)
+        return any(el in m.elements for m in self.table)
     def new_monster(self,index):
-        self.hand.drawfrom(self.deck,index)
+        self.table.drawfrom(self.deck,index)
     def costs(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
@@ -245,6 +260,7 @@ class Player_Battle:
         if self.check_won():
             self.active = False
             return
+        self.hand.drawfrom(self.deck)
         self.opponent.active = True
         self.active = False
         self.opponent.start_turn()
@@ -271,7 +287,7 @@ class Player_Battle:
         return False
     def finish(self,won):
         self.master.cash += 1000*won
-        self.master.monsters.cards.extend(self.hand.cards)
+        self.master.monsters.cards.extend(self.table.cards)
         self.master.currentBattle = None
     def handle(self):
         if not self.active:
@@ -282,15 +298,15 @@ class Player_Battle:
             self.coins -= bcost
             self.end_turn()
 
-        if self.hand.get_selection_count(self.master.uid) and self.opponent.hand.get_selection_count(self.master.uid):
-            attkr = self.hand.get_selection_unit(self.master.uid)
-            target = self.opponent.hand.get_selection_unit(self.master.uid)
+        if self.table.get_selection_count(self.master.uid) and self.opponent.table.get_selection_count(self.master.uid):
+            attkr = self.table.get_selection_unit(self.master.uid)
+            target = self.opponent.table.get_selection_unit(self.master.uid)
             kcost = attkr.destroycost(target,self.costs())
             if self.coins >= kcost:
                 self.coins -= kcost
                 self.onkill()
                 self.opponent.ondead()
-                self.opponent.hand.cards.remove(target)
+                self.opponent.table.cards.remove(target)
                 del target
             Deck.full_deselect(self.master.uid)
 
@@ -301,17 +317,17 @@ class Player_Battle:
         keys = Element.all_.keys()
         return {k:sum(self.has_element(i) for i in Element.all_[k]) for k in keys}
 
-    def display_hand(self):
-        return self.hand.display(True)
-        #return '<table><tr><td>' + "</td><td>".join(m.display() for m in self.hand) + "</td></tr></table>"
+    def display_table(self):
+        return self.table.display(True)
+        #return '<table><tr><td>' + "</td><td>".join(m.display() for m in self.table) + "</td></tr></table>"
 
     def datadisp(self):
-        info = {"monsters":self.display_hand(),
+        info = {"monsters":self.table.display(True)
                 "coins":self.coins,"costs":self.costs(),"active":self.active}
         try:
-            info["deck"] = self.master.monsters.display_compact()
+            info["hand"] = self.hand.display()
         except AttributeError:
-            info["deck"] = "N/A"
+            info["hand"] = "N/A"
         info.update(self.aspects())
         return(info)
     def display_as_enemy(self):
@@ -328,12 +344,12 @@ class AI_battle(Player_Battle):
         if opponent is not None:
             self.opponent = opponent
             opponent.opponent = self
-        self.hand = Deck()
+        self.table = Deck()
         self.coins = 6
         self.active = False
         self.uid = "AI" + hex(random.randrange(16**16))
     def new_monster(self,index=...):
-        self.hand.addrandom(1)
+        self.table.addrandom(1)
     def start_turn(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
@@ -345,15 +361,15 @@ class AI_battle(Player_Battle):
         if not self.active:
             return
         bcost = self.costs()[0]
-        if len(self.hand.cards) and len(self.opponent.hand.cards):
-            attkr = self.hand.get_selection_unit(self.uid)
-            target = self.opponent.hand.get_selection_unit(self.uid)
+        if len(self.table.cards) and len(self.opponent.table.cards):
+            attkr = self.table.get_selection_unit(self.uid)
+            target = self.opponent.table.get_selection_unit(self.uid)
             kcost = attkr.destroycost(target,self.costs())
             if self.coins >= kcost+bcost or bcost > self.coins >= kcost:
                 self.coins -= kcost
                 self.onkill()
                 self.opponent.ondead()
-                self.opponent.hand.cards.remove(target)
+                self.opponent.table.cards.remove(target)
                 del target
 
 
@@ -437,6 +453,10 @@ def select_monster(unid):
     Monster.all_[unid].selected[player.uid] = not Monster.all_[unid].selected[player.uid]
     if player.currentBattle is not None:
         player.currentBattle.handle()
+    else:
+        player.deck.swap_selected(player.monsters,player.uid)
+        player.deck.full_deselect(player.uid)
+        player.monsters.full_deselect(player.uid)
     return ('',204)
 
 if __name__ == '__main__':

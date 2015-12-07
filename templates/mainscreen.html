@@ -5,8 +5,10 @@
         <a href="/battle/AI/">start AI battle</a> <br/>
         Money: {{ money}} <br/>
         <a href="javascript:followUrl('/addmonster/')">new monster</a> <br/>
+        Deck:<br/>
+        <div id="deck">{{ deck | safe }}</div>
         Monsters:<br/>
-        <div id="deck">{{ monsters | safe }}</div>
+        <div id="cart">{{ monsters | safe }}</div>
 
 
         <script>
@@ -24,7 +26,8 @@
                 if (xmlhttp.readyState==4 && xmlhttp.status==200)
                 {
                     var data = JSON.parse(xmlhttp.responseText)
-                    document.getElementById("deck").innerHTML=data.monsters;
+                    document.getElementById("deck").innerHTML=data.deck;
+                    document.getElementById("cart").innerHTML=data.monsters;
                 }
               }
             function loadXMLDoc()
