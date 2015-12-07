@@ -17,7 +17,7 @@ class Element:
     all_names = {}
     def __init__(self,sphere,nameP,effect=""):
         self.name = nameP.split(":")[0]
-        self.dname = "<span title=\"{1}\">{0}</span>".format(*nameP.split(":"))
+        self.dname = "<span title=\"{2}\"><font color=\"{1}\">{0}</font></span>".format(*nameP.split(":"))
         self.sphere = sphere
         self.effect = effect
         self.index = len(Element.all_list)
@@ -232,6 +232,18 @@ def doublejoin(d1,d2,l,n):
 def chance(c):
     return random.random()*c < 1
 
+def relpos(index,maxi,r,g,b):
+    color = ",".join((str(r),str(g),str(b)))
+    return """<svg width="20" height="20">
+                <rect width="20" height="20" style="fill:rgb(255,255,255);stroke-width:3;stroke:rgb({})" />
+            </svg>""".format(color)*(maxi + index) + \
+           """<svg width="20" height="20">
+                <rect width="20" height="20" style="fill:rgb({0});stroke-width:3;stroke:rgb({0})" />
+            </svg>""".format(color) + \
+            """<svg width="20" height="20">
+                <rect width="20" height="20" style="fill:rgb(255,255,255);stroke-width:3;stroke:rgb({})" />
+            </svg>""".format(color)*(maxi - index)
+
 class Player_Battle:
     def __init__(self,master:Player,opponent=None):
         if opponent is not None:
@@ -244,10 +256,16 @@ class Player_Battle:
         self.coins = 6
         self.active = False
         self.deck = self.master.deck
+        self.hand.drawfrom(self.deck)
+        self.hand.drawfrom(self.deck)
+        self.hand.drawfrom(self.deck)
+        self.hand.drawfrom(self.deck)
+        self.hand.drawfrom(self.deck)
     def has_element(self,el):
         return any(el in m.elements for m in self.table)
     def new_monster(self,index):
-        self.table.drawfrom(self.deck,index)
+        self.table.drawfrom(self.hand,index)
+        self.hand.drawfrom(self.deck)
     def costs(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
@@ -260,7 +278,6 @@ class Player_Battle:
         if self.check_won():
             self.active = False
             return
-        self.hand.drawfrom(self.deck)
         self.opponent.active = True
         self.active = False
         self.opponent.start_turn()
@@ -287,14 +304,15 @@ class Player_Battle:
         return False
     def finish(self,won):
         self.master.cash += 1000*won
-        self.master.monsters.cards.extend(self.table.cards)
+        self.deck.cards.extend(self.table.cards)
+        self.deck.cards.extend(self.hand.cards)
         self.master.currentBattle = None
     def handle(self):
         if not self.active:
             return
         bcost = self.costs()[0]
-        if self.coins >= bcost and self.deck.get_selection_count(self.master.uid):
-            self.new_monster(self.deck.get_selection_index(self.master.uid))
+        if self.coins >= bcost and self.hand.get_selection_count(self.master.uid):
+            self.new_monster(self.hand.get_selection_index(self.master.uid))
             self.coins -= bcost
             self.end_turn()
 
@@ -306,29 +324,31 @@ class Player_Battle:
                 self.coins -= kcost
                 self.onkill()
                 self.opponent.ondead()
-                self.opponent.table.cards.remove(target)
+                self.opponent.kill_monster(target)
                 del target
             Deck.full_deselect(self.master.uid)
 
+    def kill_monster(self,target):
+        self.table.swap(self.deck,target)
 
 
-
-    def aspects(self):
+    def aspects(self,other):
         keys = Element.all_.keys()
-        return {k:sum(self.has_element(i) for i in Element.all_[k]) for k in keys}
+        color = {"classic":(0,127,0),"spiritual":(0,127,255),"cosmic":(0,0,127),"intern":(255,0,0)}
+        return {k:relpos(sum(self.has_element(i) - other.has_element(i) for i in Element.all_[k]),4,*color[k]) for k in keys}
 
     def display_table(self):
         return self.table.display(True)
         #return '<table><tr><td>' + "</td><td>".join(m.display() for m in self.table) + "</td></tr></table>"
 
     def datadisp(self):
-        info = {"monsters":self.table.display(True)
+        info = {"monsters":self.table.display(True),
                 "coins":self.coins,"costs":self.costs(),"active":self.active}
         try:
-            info["hand"] = self.hand.display()
+            info["hand"] = self.hand.display(True)
         except AttributeError:
             info["hand"] = "N/A"
-        info.update(self.aspects())
+        info.update(self.aspects(self.opponent))
         return(info)
     def display_as_enemy(self):
         return render_template("render_as_enemy.html",**self.datadisp())
@@ -369,9 +389,8 @@ class AI_battle(Player_Battle):
                 self.coins -= kcost
                 self.onkill()
                 self.opponent.ondead()
-                self.opponent.table.cards.remove(target)
+                self.opponent.kill_monster(target)
                 del target
-
 
         if self.coins >= bcost:
             self.new_monster()
@@ -390,6 +409,8 @@ class AI_battle(Player_Battle):
         self.opponent.start_turn()
     def finish(self,won):
         pass
+    def kill_monster(self,target):
+        self.table.cards.remove(target)
 
 @app.route('/')
 def main():

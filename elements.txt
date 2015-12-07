@@ -1,20 +1,20 @@
 [classic]
-fire:free kill cheaper
-water:gain 2 on dead/kill
-air:opposed kill cheaper
-earth:free kill more expensive
+fire:green:free kill cheaper
+water:green:gain 2 on dead/kill
+air:green:opposed kill cheaper
+earth:green:free kill more expensive
 [spiritual]
-life:new monster cheaper
-death:gain 4 on kill
-light:opposed kill more expensive
-darkness:chance of 1/2 to steal 1
+life:#0077ff:new monster cheaper
+death:#0077ff:gain 4 on kill
+light:#0077ff:opposed kill more expensive
+darkness:#0077ff:chance of 1/2 to steal 1
 [cosmic]
-order:new monster more expensive
-chaos:chance 1/4 to gain 4 extra/turn
-time:gain 1 extra/turn
-lasting:gain 6 on death
+order:#000077:new monster more expensive
+chaos:#000077:chance 1/4 to gain 4 extra/turn
+time:#000077:gain 1 extra/turn
+lasting:#000077:gain 6 on death
 [intern]
-force:direct kill cheaper
-speed:chance 1/2 to gain 2 extra/turn
-matter:direct kill more expensive
-phantom:chance 1/2 to gain 12 on death
+force:red:direct kill cheaper
+speed:red:chance 1/2 to gain 2 extra/turn
+matter:red:direct kill more expensive
+phantom:red:chance 1/2 to gain 12 on death

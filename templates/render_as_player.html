@@ -14,10 +14,12 @@
         </td>
         <td>
         <td>
-            terra : {{ classic }}/4 <br/>
-            divine : {{ spiritual }}/4 <br/>
-            aether : {{ cosmic }}/4 <br/>
-            balance : {{ intern }}/4
+        <table>
+            <tr><td>terra </td><td>  {{ classic|safe }} </td></tr>
+            <tr><td>divine </td><td>  {{ spiritual|safe }} </td></tr>
+            <tr><td>aether </td><td>  {{ cosmic|safe }} </td></tr>
+            <tr><td>balance </td><td>  {{ intern|safe }}</td></tr>
+        </table>
         </td>
     </tr>
 </table>
