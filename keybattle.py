@@ -150,6 +150,8 @@ class Player:
             p1 = Player.all_[Player.waiting.pop(0)]
             p2 = Player.all_[Player.waiting.pop(0)]
             Player_Battle(p1,Player_Battle(p2)).active = True
+    def startAIgame(self):
+        Player_Battle(self,AI_battle()).active = True
 
 
     def display_all_Monsters(self,selectable=False):
@@ -224,7 +226,7 @@ class Player_Battle:
         self.master = master
         self.master.currentBattle = self
         self.hand = Deck()
-        self.coins = 3
+        self.coins = 6
         self.active = False
         self.deck = self.master.monsters
     def has_element(self,el):
@@ -234,15 +236,18 @@ class Player_Battle:
     def costs(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
-        return 3 - s("life") + t("order"), 4 - s("fire") + t("earth"), \
-               3 - s("air") + t("light") , 2 - s("force") + t("solid")
+        return 6 - 2*s("life") + 2*t("order"), 8 - 2*s("fire") + 2*t("earth"), \
+               6 - 2*s("air") + 2*t("light") , 4 - 2*s("force") + 2*t("matter")
     def end_turn(self):
+        Deck.full_deselect(self.master.uid)
         if not self.active:
+            return
+        if self.check_won():
+            self.active = False
             return
         self.opponent.active = True
         self.active = False
         self.opponent.start_turn()
-        Deck.full_deselect(self.master.uid)
     def start_turn(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
@@ -252,11 +257,22 @@ class Player_Battle:
     def onkill(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
-        self.coins += s("death")*2 + s("water")
+        self.coins += s("death")*4 + s("water")*2
     def ondead(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
-        self.coins += s("infinity")*3 + s("water") + chance(2)*5*s("phantom")
+        self.coins += s("lasting")*6 + s("water")*2 + chance(2)*12*s("phantom")
+    def check_won(self):
+        for i in Element.all_.values():
+            if all(self.has_element(j) for j in i) and not any(self.opponent.has_element(j) for j in i):
+                self.finish(True)
+                self.opponent.finish(False)
+                return True
+        return False
+    def finish(self,won):
+        self.master.cash += 1000*won
+        self.master.monsters.cards.extend(self.hand.cards)
+        self.master.currentBattle = None
     def handle(self):
         if not self.active:
             return
@@ -289,17 +305,75 @@ class Player_Battle:
         return self.hand.display(True)
         #return '<table><tr><td>' + "</td><td>".join(m.display() for m in self.hand) + "</td></tr></table>"
 
-    def display_as_enemy(self):
-        info = {"monsters":self.display_hand(),"coins":self.coins,"active":self.active}
-        info.update(self.aspects())
-        return render_template("render_as_enemy.html",**info)
-    def display_as_player(self):
-        info = {"monsters":self.display_hand(),"deck":self.master.monsters.display_compact(),
+    def datadisp(self):
+        info = {"monsters":self.display_hand(),
                 "coins":self.coins,"costs":self.costs(),"active":self.active}
+        try:
+            info["deck"] = self.master.monsters.display_compact()
+        except AttributeError:
+            info["deck"] = "N/A"
         info.update(self.aspects())
-        return render_template("render_as_player.html",**info)
+        return(info)
+    def display_as_enemy(self):
+        return render_template("render_as_enemy.html",**self.datadisp())
+    def display_as_player(self):
+
+        return render_template("render_as_player.html",**self.datadisp())
     def get_json(self):
         return {"player":self.display_as_player(),"enemy":self.opponent.display_as_enemy()}
+
+
+class AI_battle(Player_Battle):
+    def __init__(self,opponent=None):
+        if opponent is not None:
+            self.opponent = opponent
+            opponent.opponent = self
+        self.hand = Deck()
+        self.coins = 6
+        self.active = False
+        self.uid = "AI" + hex(random.randrange(16**16))
+    def new_monster(self,index=...):
+        self.hand.addrandom(1)
+    def start_turn(self):
+        s = lambda x:self.has_element(Element.all_names[x])
+        t = lambda x:self.opponent.has_element(Element.all_names[x])
+        steal = chance(2)*s("darkness")
+        self.coins += 2 + s("time") + chance(2)*s("speed")*2 + chance(4)*s("chaos")*4 + steal
+        self.opponent.coins -= steal
+        self.handle_all()
+    def handle_all(self):
+        if not self.active:
+            return
+        bcost = self.costs()[0]
+        if len(self.hand.cards) and len(self.opponent.hand.cards):
+            attkr = self.hand.get_selection_unit(self.uid)
+            target = self.opponent.hand.get_selection_unit(self.uid)
+            kcost = attkr.destroycost(target,self.costs())
+            if self.coins >= kcost+bcost or bcost > self.coins >= kcost:
+                self.coins -= kcost
+                self.onkill()
+                self.opponent.ondead()
+                self.opponent.hand.cards.remove(target)
+                del target
+
+
+        if self.coins >= bcost:
+            self.new_monster()
+            self.coins -= bcost
+        Deck.full_deselect(self.uid)
+        self.end_turn()
+    def end_turn(self):
+        Deck.full_deselect(self.uid)
+        if not self.active:
+            return
+        if self.check_won():
+            self.active = False
+            return
+        self.opponent.active = True
+        self.active = False
+        self.opponent.start_turn()
+    def finish(self,won):
+        pass
 
 @app.route('/')
 def main():
@@ -322,6 +396,13 @@ def battle():
         return render_template("waiting.html")
     return render_template("combat.html")
 
+@app.route('/battle/AI/')
+def battle_AI():
+    player = Player.get()
+    if player.currentBattle is None:
+        player.startAIgame()
+    return redirect("/battle/")
+
 @app.route('/battle/leaveQueue/')
 def leaveQueue():
     player = Player.get()
@@ -341,7 +422,7 @@ def End_turn():
 def get_battle_data():
     player = Player.get()
     if player.currentBattle is None:
-        return ('', 204)
+        return redirect("/")
     else:
         return jsonify(player.currentBattle.get_json())
 

@@ -1,20 +1,20 @@
 [classic]
 fire:free kill cheaper
-water:gain 1 on dead/kill
+water:gain 2 on dead/kill
 air:opposed kill cheaper
 earth:free kill more expensive
 [spiritual]
 life:new monster cheaper
-death:gain 2 on kill
+death:gain 4 on kill
 light:opposed kill more expensive
 darkness:chance of 1/2 to steal 1
 [cosmic]
 order:new monster more expensive
 chaos:chance 1/4 to gain 4 extra/turn
 time:gain 1 extra/turn
-infinity:gain 3 on death
+lasting:gain 6 on death
 [intern]
 force:direct kill cheaper
 speed:chance 1/2 to gain 2 extra/turn
-solid:direct kill more expensive
-phantom:chance 1/2 to gain 5 on death
+matter:direct kill more expensive
+phantom:chance 1/2 to gain 12 on death
