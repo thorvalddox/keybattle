@@ -1,0 +1,31 @@
+#selected.battlerborder
+{
+    border-style: double;
+}
+
+#default.battlerborder
+{
+    border-style: solid;
+}
+
+img.battler
+{
+    max-width:115px; max-height:115px;
+    min-width:1px; min-height:1px;
+}
+
+div.imgbattler
+{
+    width:120px; height:120px;
+    display:table-cell;
+    vertical-align:middle;
+    text-align:center
+}
+
+.right{
+    float:right;
+}
+
+.left{
+    float:left;
+}
