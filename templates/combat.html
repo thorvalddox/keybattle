@@ -30,14 +30,14 @@
                 xmlhttp.send();
             }
             function load(){
-            var t=setInterval(loadXMLDoc,5000);
+            var t=setInterval(loadXMLDoc,500);
             loadXMLDoc();
             }
             $(document).ready(load);
             function followUrl(url)
             {
                 window.location = url;
-                setTimeout(function() { loadXMLDoc(); }, 300);
+                setTimeout(function() { loadXMLDoc(); }, 1000);
             }
         </script>
 

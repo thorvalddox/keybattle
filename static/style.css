@@ -10,16 +10,25 @@
 
 img.battler
 {
-    max-width:115px; max-height:115px;
+    max-width:115px; max-height:75px;
     min-width:1px; min-height:1px;
 }
 
 div.imgbattler
 {
-    width:120px; height:120px;
+    width:120px; height:80px;
     display:table-cell;
     vertical-align:middle;
     text-align:center
+}
+td.deck {
+    min-width: 130px;
+    white-space: nowrap;
+}
+
+div.deck {
+    width:100%;
+    overflow-x: scroll;
 }
 
 .right{
@@ -28,4 +37,9 @@ div.imgbattler
 
 .left{
     float:left;
+}
+
+svg {
+    width:20px;
+    height:20px;
 }

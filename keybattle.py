@@ -69,6 +69,8 @@ class Element:
 def elements_to_hash(*elements):
     return("_".join(e.name for e in sorted(elements,key=lambda x:x.index)))
 
+def elements_from_hash(string):
+    return tuple(Element.all_names[i] for i in string.split("_"))
 
 class Selector:
     def __init__(self,dict_=()):
@@ -126,6 +128,7 @@ def randommonster():
     return Monster(*m)
 
 class Player:
+    # TODO save and load after sever reset
     all_ = {}
     waiting = []
     @classmethod
@@ -134,16 +137,34 @@ class Player:
             return cls()
         else:
             return Player.all_[session["uid"]]
+    @classmethod
+    def save_all(cls):
+        with open("players.json","w") as fff:
+            json.dump([i.save() for i in cls.all_.values()],fff,indent=3)
+    @classmethod
+    def load_all(cls):
+        with open("players.json","r") as fff:
+            for i in json.load(fff) :
+                cls(i)
+    def __init__(self,databank=...):
+        if databank == ...:
+            self.uid = hex(random.randrange(16**16))
+            session["uid"] = self.uid
+            self.monsters = Deck()
+            self.deck = Deck()
+            self.monsters.addrandom(10)
+            self.cash = 100
+        else:
+            self.uid = databank["uid"]
+            self.monsters = Deck.from_json(databank["monsters"])
+            self.deck = Deck.from_json(databank["deck"])
+            self.cash = databank["cash"]
 
-    def __init__(self):
-        self.uid = hex(random.randrange(16**16))
-        session["uid"] = self.uid
-        self.monsters = Deck()
-        self.deck = Deck()
-        self.monsters.addrandom(10)
-        self.cash = 100
+
         Player.all_[self.uid] = self
+        self.name = "Player_" + self.uid[2:10]
         self.currentBattle = None
+
     def entergame(self):
         if not self.uid in Player.waiting:
             Player.waiting.append(self.uid)
@@ -151,9 +172,10 @@ class Player:
             p1 = Player.all_[Player.waiting.pop(0)]
             p2 = Player.all_[Player.waiting.pop(0)]
             Player_Battle(p1,Player_Battle(p2)).active = True
+        Player.save_all()
     def startAIgame(self):
         Player_Battle(self,AI_battle()).active = True
-
+        Player.save_all()
 
     #def display_all_Monsters(self,selectable=False):
     #    return self.monsters.display(selectable)
@@ -162,6 +184,12 @@ class Player:
         return {"money":self.cash,"monsters":self.monsters.display(True),"deck":self.deck.display(True),"uid":self.uid}
     def get_json(self):
         return self.render_options()
+    def save(self):
+        return {"name":self.name,
+                "uid":self.uid,
+                "monsters":self.monsters.to_json(),
+                "deck":self.deck.to_json(),
+                "cash": 100}
 
 
 class Deck():
@@ -170,20 +198,28 @@ class Deck():
     def add(self,el1,el2):
         self.cards.append(Monster(el1,el2))
         self.sort()
+    def copy(self):
+        s = type(self)()
+        s.cards = self.cards.copy()
+        return s
     def swap(self,other,monster):
         if monster in self.cards:
             self.cards.remove(monster)
             other.cards.append(monster)
+            return monster
         elif monster in other.cards:
             other.cards.remove(monster)
             self.cards.append(monster)
+            return monster
     def swap_selected(self,other,uid):
         for x in self.cards+other.cards:
             if x.selected[uid]:
                 self.swap(other,x)
     def addrandom(self,amount=1):
         self.cards.extend(randommonster() for _ in range(amount))
+        s = self.cards[-1]
         self.sort()
+        return s
     def sort(self):
         self.cards.sort(key=lambda x:[e.index for e in x.elements])
     def __getitem__(self, item):
@@ -192,8 +228,9 @@ class Deck():
         if index == ...:
             index = random.randrange(len(other.cards))
         self.cards.append(other.cards.pop(index))
+        return self.cards[-1]
     def destroy(self,item):
-        self.cards.pop(item)
+        return self.cards.pop(item)
     def displaydict(self):
         hashlist = [x.id for x in self.cards]
         yieldedids = []
@@ -202,10 +239,14 @@ class Deck():
             if i.id not in yieldedids:
                 yieldedids.append(i.id)
                 yield (i,hashlist.count(i.id))
-    def display(self,selectable):
+    def display_old(self,selectable):
         return '<table><tr><td>' + \
             doublejoin("</td></tr><tr><td>","</td><td>",[m.display(selectable,a) for m,a in self.displaydict()],8) + \
                "</td></tr></table>"
+    def display(self,selectable):
+        return '<div class=\"deck\"><table><tr><td class=\"deck\">' + \
+                "</td><td class=\"deck\">".join(m.display(selectable,a) for m,a in self.displaydict()) + \
+                "</td></tr></table></div>"
     def display_compact(self):
         return '<table><tr><td>' + \
             doublejoin("</td></tr><tr><td>","</td><td>",[m.display_compact(a) for m,a in self.displaydict()],8) + \
@@ -222,6 +263,13 @@ class Deck():
     def full_deselect(uid):
         for i in Monster.all_.values():
             i.selected[uid] = False
+    def to_json(self):
+        return [m.id for m in self.cards]
+    @classmethod
+    def from_json(cls,data):
+        s = cls()
+        s.cards = [Monster(*elements_from_hash(i)) for i in data]
+        return s
 
 
 
@@ -232,15 +280,14 @@ def doublejoin(d1,d2,l,n):
 def chance(c):
     return random.random()*c < 1
 
-def relpos(index,maxi,r,g,b):
+def relpos(index,tpe,maxi,r,g,b):
     color = ",".join((str(r),str(g),str(b)))
-    return """<svg width="20" height="20">
+    return """<svg>
                 <rect width="20" height="20" style="fill:rgb(255,255,255);stroke-width:3;stroke:rgb({})" />
             </svg>""".format(color)*(maxi + index) + \
-           """<svg width="20" height="20">
-                <rect width="20" height="20" style="fill:rgb({0});stroke-width:3;stroke:rgb({0})" />
-            </svg>""".format(color) + \
-            """<svg width="20" height="20">
+           open("static/icons/" + "world.svg;holy-grail.svg;star-swirl.svg;mailed-fist.svg".split(";")[tpe]).read()\
+               .format("rgb(" + color + ")") + \
+            """<svg>
                 <rect width="20" height="20" style="fill:rgb(255,255,255);stroke-width:3;stroke:rgb({})" />
             </svg>""".format(color)*(maxi - index)
 
@@ -250,34 +297,36 @@ class Player_Battle:
             self.opponent = opponent
             opponent.opponent = self
         self.master = master
+        self.name = self.master.name
         self.master.currentBattle = self
         self.table = Deck()
         self.hand = Deck()
-        self.coins = 6
+        self.coins = 20
+        self.log = []
         self.active = False
-        self.deck = self.master.deck
-        self.hand.drawfrom(self.deck)
-        self.hand.drawfrom(self.deck)
-        self.hand.drawfrom(self.deck)
-        self.hand.drawfrom(self.deck)
-        self.hand.drawfrom(self.deck)
+        self.deck = self.master.deck.copy()
+        for _ in range(5):
+            self.hand.drawfrom(self.deck)
+
     def has_element(self,el):
         return any(el in m.elements for m in self.table)
     def new_monster(self,index):
-        self.table.drawfrom(self.hand,index)
+        s = self.table.drawfrom(self.hand,index)
         self.hand.drawfrom(self.deck)
+        self.add_to_log("{} spawned {}".format(self.name,s.name),"blue")
     def costs(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
-        return 6 - 2*s("life") + 2*t("order"), 8 - 2*s("fire") + 2*t("earth"), \
-               6 - 2*s("air") + 2*t("light") , 4 - 2*s("force") + 2*t("matter")
+        return 10 - 2*s("life") + 2*t("order"), 12 - 3*s("fire") + 3*t("earth"), \
+               8 - 3*s("air") + 3*t("light") , 4 - 3*s("force") + 3*t("matter")
     def end_turn(self):
         Deck.full_deselect(self.master.uid)
+        self.add_to_log("{} ended his turn".format(self.name))
         if not self.active:
             return
         if self.check_won():
             self.active = False
-            return redirect("/")
+            return redirect("/battle/end/")
         self.opponent.active = True
         self.active = False
         self.opponent.start_turn()
@@ -286,16 +335,17 @@ class Player_Battle:
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
         steal = chance(2)*s("darkness")
-        self.coins += 2 + s("time") + chance(2)*s("speed")*2 + chance(4)*s("chaos")*4 + steal
+        self.coins += 4 + s("time") + chance(2)*s("speed")*2 + chance(4)*s("chaos")*4 + steal
         self.opponent.coins -= steal
     def onkill(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
-        self.coins += s("death")*4 + s("water")*2
+        self.coins += s("death")*2 + s("water")
     def ondead(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
-        self.coins += s("lasting")*6 + s("water")*2 + chance(2)*12*s("phantom")
+        self.coins += s("infinite") + s("water") + 3*s("phantom")
+        self.opponent.coins -= s("infinite")
     def check_won(self):
         for i in Element.all_.values():
             if all(self.has_element(j) for j in i) and not any(self.opponent.has_element(j) for j in i):
@@ -308,6 +358,18 @@ class Player_Battle:
         self.deck.cards.extend(self.table.cards)
         self.deck.cards.extend(self.hand.cards)
         self.master.currentBattle = None
+
+    def redraw(self):
+        if not self.active:
+            return ('',204)
+        if self.coins >= 1:
+            self.coins -= 1
+            for _ in range(5):
+                self.deck.drawfrom(self.hand)
+            for _ in range(5):
+                self.hand.drawfrom(self.deck)
+            self.end_turn()
+        return ('',204)
     def handle(self):
         if not self.active:
             return ('',204)
@@ -326,6 +388,7 @@ class Player_Battle:
                 self.onkill()
                 self.opponent.ondead()
                 self.opponent.kill_monster(target)
+                self.add_to_log("{} killed {} with {}".format(self.name,attkr.name,target.name),"red")
                 del target
             Deck.full_deselect(self.master.uid)
         return ('',204)
@@ -337,7 +400,8 @@ class Player_Battle:
     def aspects(self,other):
         keys = Element.all_.keys()
         color = {"classic":(0,127,0),"spiritual":(0,127,255),"cosmic":(0,0,127),"intern":(255,0,0)}
-        return {k:relpos(sum(self.has_element(i) - other.has_element(i) for i in Element.all_[k]),4,*color[k]) for k in keys}
+        return {k:relpos(sum(self.has_element(i) - other.has_element(i) for i in Element.all_[k]),
+                   Element.all_[k][0].index//4,4,*color[k]) for k in keys}
 
     def display_table(self):
         return self.table.display(True)
@@ -345,7 +409,8 @@ class Player_Battle:
 
     def datadisp(self):
         info = {"monsters":self.table.display(True),
-                "coins":self.coins,"costs":self.costs(),"active":self.active}
+                "coins":self.coins,"costs":self.costs(),"active":self.active,
+                "log":self.show_log(8)}
         try:
             info["hand"] = self.hand.display(True)
         except AttributeError:
@@ -360,6 +425,12 @@ class Player_Battle:
     def get_json(self):
         return {"player":self.display_as_player(),"enemy":self.opponent.display_as_enemy()}
 
+    def add_to_log(self,text,color="black"):
+        self.log.append("<font color=\"{}\">{}</font>".format(color,text))
+        self.opponent.log.append("<font color=\"{}\">{}</font>".format(color,text))
+    def show_log(self,lines):
+        return "<br/>".join(self.log[-lines:])
+
 
 class AI_battle(Player_Battle):
     def __init__(self,opponent=None):
@@ -367,11 +438,14 @@ class AI_battle(Player_Battle):
             self.opponent = opponent
             opponent.opponent = self
         self.table = Deck()
-        self.coins = 6
+        self.coins = 20
         self.active = False
         self.uid = "AI" + hex(random.randrange(16**16))
+        self.name = "computer"
+        self.log = []
     def new_monster(self,index=...):
-        self.table.addrandom(1)
+        s = self.table.addrandom(1)
+        self.add_to_log("{} spawned {}".format(self.name,s.name),"blue")
     def start_turn(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
@@ -387,11 +461,12 @@ class AI_battle(Player_Battle):
             attkr = self.table.get_selection_unit(self.uid)
             target = self.opponent.table.get_selection_unit(self.uid)
             kcost = attkr.destroycost(target,self.costs())
-            if self.coins >= kcost+bcost or bcost > self.coins >= kcost:
+            if self.coins >= kcost+bcost or bcost > self.coins >= kcost or (self.coins >= kcost and len(self.table.cards) >= 5):
                 self.coins -= kcost
                 self.onkill()
                 self.opponent.ondead()
                 self.opponent.kill_monster(target)
+                self.add_to_log("{} killed {} with {}".format(self.name,attkr.name,target.name),"red")
                 del target
 
         if self.coins >= bcost:
@@ -401,6 +476,7 @@ class AI_battle(Player_Battle):
         self.end_turn()
     def end_turn(self):
         Deck.full_deselect(self.uid)
+        self.add_to_log("{} ended his turn".format(self.name))
         if not self.active:
             return
         if self.check_won():
@@ -425,6 +501,7 @@ def main():
 def addnewmonster():
     player = Player.get()
     player.monsters.addrandom(10)
+    Player.save_all()
     return ('',204)
 
 @app.route('/battle/')
@@ -457,11 +534,24 @@ def End_turn():
         player.currentBattle.end_turn()
     return ('', 204)
 
+
+@app.route("/battle/end/")
+def end_battle():
+    return render_template("battle_end.html")
+
+
+@app.route('/battle/redraw/')
+def battle_redraw():
+    player = Player.get()
+    if player.currentBattle is not None:
+        return player.currentBattle.redraw()
+    return ('', 204)
+
 @app.route("/get/data/battle/")
 def get_battle_data():
     player = Player.get()
     if player.currentBattle is None:
-        return redirect("/")
+        return redirect("/battle/end/")
     else:
         return jsonify(player.currentBattle.get_json())
 
@@ -480,10 +570,12 @@ def select_monster(unid):
         player.deck.swap_selected(player.monsters,player.uid)
         player.deck.full_deselect(player.uid)
         player.monsters.full_deselect(player.uid)
+        Player.save_all()
     return ('',204)
 
 if __name__ == '__main__':
     Element.load("elements.txt")
     Monster.load_names()
     print(repr(Element.all_))
+    Player.load_all()
     app.run()
