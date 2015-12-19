@@ -277,10 +277,11 @@ class Player_Battle:
             return
         if self.check_won():
             self.active = False
-            return
+            return redirect("/")
         self.opponent.active = True
         self.active = False
         self.opponent.start_turn()
+        return ('',204)
     def start_turn(self):
         s = lambda x:self.has_element(Element.all_names[x])
         t = lambda x:self.opponent.has_element(Element.all_names[x])
@@ -309,12 +310,12 @@ class Player_Battle:
         self.master.currentBattle = None
     def handle(self):
         if not self.active:
-            return
+            return ('',204)
         bcost = self.costs()[0]
         if self.coins >= bcost and self.hand.get_selection_count(self.master.uid):
             self.new_monster(self.hand.get_selection_index(self.master.uid))
             self.coins -= bcost
-            self.end_turn()
+            return self.end_turn()
 
         if self.table.get_selection_count(self.master.uid) and self.opponent.table.get_selection_count(self.master.uid):
             attkr = self.table.get_selection_unit(self.master.uid)
@@ -327,6 +328,7 @@ class Player_Battle:
                 self.opponent.kill_monster(target)
                 del target
             Deck.full_deselect(self.master.uid)
+        return ('',204)
 
     def kill_monster(self,target):
         self.table.swap(self.deck,target)
@@ -473,7 +475,7 @@ def select_monster(unid):
     player = Player.get()
     Monster.all_[unid].selected[player.uid] = not Monster.all_[unid].selected[player.uid]
     if player.currentBattle is not None:
-        player.currentBattle.handle()
+        return player.currentBattle.handle()
     else:
         player.deck.swap_selected(player.monsters,player.uid)
         player.deck.full_deselect(player.uid)
